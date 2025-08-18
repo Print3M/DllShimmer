@@ -1,0 +1,6 @@
+project/
+*.dll
+*.lib
+*.def
+*.cpp
+./.vscode

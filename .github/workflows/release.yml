@@ -1,0 +1,98 @@
+name: Build DllShimmer
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    types: [ closed ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  repository-projects: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23.1'
+
+    - name: Build Windows binary
+      run: |
+        GOOS=windows GOARCH=amd64 go build -o DllShimmer.exe -ldflags "-w -s" -trimpath main.go
+
+    - name: Build Linux binary
+      run: |
+        GOOS=linux GOARCH=amd64 go build -o DllShimmer-linux-amd64 -ldflags "-w -s" -trimpath main.go
+
+    - name: Build macOS binary (Apple Silicon)
+      run: |
+        GOOS=darwin GOARCH=arm64 go build -o DllShimmer-darwin-arm64 -ldflags "-w -s" -trimpath main.go
+
+    - name: List built binaries
+      run: ls -la
+
+    - name: Delete existing tag and release
+      uses: dev-drprasad/delete-tag-and-release@v1.1
+      with:
+        tag_name: 1.0.4
+        delete_release: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: 1.0.4
+        release_name: DllShimmer 1.0.4
+        body: |
+          DllShimmer Weaponize DLL hijacking easily. Backdoor any function in any DLL.
+
+          - [x] Bug fixes 
+          - [x] New banner 
+          - [x] Better help instruction 
+          - [x] Better debug logging
+        draft: false          
+        prerelease: false     
+    - name: Upload Windows asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: DllShimmer.exe
+        asset_name: DllShimmer.exe
+        asset_content_type: application/octet-stream
+
+    - name: Upload Linux asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: DllShimmer-linux-amd64
+        asset_name: DllShimmer-linux-amd64
+        asset_content_type: application/octet-stream
+
+    - name: Upload macOS asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: DllShimmer-darwin-arm64
+        asset_name: DllShimmer-darwin-arm64
+        asset_content_type: application/octet-stream
